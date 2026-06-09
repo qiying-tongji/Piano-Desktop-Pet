@@ -1,0 +1,30 @@
+appId: com.piano.desktop.pet
+productName: Piano Desktop Pet
+copyright: Copyright © 2026
+directories:
+  output: release
+  buildResources: build
+files:
+  - dist/**/*
+  - dist-electron/**/*
+  - package.json
+asar: true
+asarUnpack:
+  - '**/*.wasm'
+  - '**/*.task'
+win:
+  target:
+    - target: nsis
+      arch:
+        - x64
+    - target: portable
+      arch:
+        - x64
+nsis:
+  artifactName: '${productName}-Setup-${version}-${os}-${arch}.${ext}'
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  shortcutName: Piano Desktop Pet
+portable:
+  artifactName: '${productName}-Portable-${version}-${os}-${arch}.${ext}'

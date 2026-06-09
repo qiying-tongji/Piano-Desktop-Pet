@@ -1,0 +1,5 @@
+export { useMusicIntentEngine } from './hooks/useMusicIntentEngine'
+export { generatePhrase, getPhraseMemory, resetPhraseMemory, behaviorFromSwipe } from './lib/aiPiano/aiPianoEngine'
+export type { PianoPhrase, PhraseBehavior, PhraseMemory } from './lib/aiPiano/types'
+export { quantizeToScale, buildScaleNotes } from './lib/scales'
+export { getChordNotes, getPadVoicing, getExpandedPadVoicing } from './lib/chords'

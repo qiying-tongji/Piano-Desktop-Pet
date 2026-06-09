@@ -1,0 +1,73 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: dark;
+}
+
+html,
+body,
+#root {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  background: transparent;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+body {
+  font-family:
+    'Segoe UI',
+    system-ui,
+    -apple-system,
+    sans-serif;
+}
+
+/* Electron transparent window: ensure no default white flash */
+#root {
+  background: transparent;
+}
+
+@layer utilities {
+  .glass-panel {
+    @apply rounded-2xl border border-pet-border bg-pet-glass backdrop-blur-xl;
+  }
+
+  .piano-shell {
+    @apply fixed inset-0 h-full w-full bg-[#07070d]/95;
+  }
+
+  .piano-panel {
+    @apply grid h-full w-full overflow-hidden border border-white/10 backdrop-blur-md;
+    grid-template-rows: auto auto minmax(clamp(280px, 52vh, 460px), 1fr);
+    background-color: rgba(2, 6, 23, 0.92);
+  }
+
+  .piano-keyboard-dock {
+    min-height: clamp(280px, 52vh, 460px);
+  }
+
+  .neon-ring {
+    box-shadow:
+      0 0 0 1px rgba(167, 139, 250, 0.2),
+      0 0 20px rgba(167, 139, 250, 0.15),
+      inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  }
+
+  .window-drag {
+    -webkit-app-region: drag;
+  }
+
+  .window-no-drag {
+    -webkit-app-region: no-drag;
+  }
+
+  /* Transparent windows on Windows need a hit-test surface for native drag */
+  .drag-hitbox {
+    background: rgba(0, 0, 0, 0.001);
+  }
+}
