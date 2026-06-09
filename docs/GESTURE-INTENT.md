@@ -19,6 +19,8 @@ MediaPipe → Analyzer → IntentDetector → AI Piano Engine → Salamander 采
 | **双手** | 张开 Expand | 电影感高潮 phrase + 空间混响 |
 | **双手** | 收拢 Compress | 亲密 felt phrase + 干燥近距离感 |
 
+**重要**：即使摄像头里只看到一只手，也按 MediaPipe 识别的 Left/Right 分工——右手只触发旋律，左手只触发和弦，不会「单手双功能」。
+
 ## 右手 Phrase 映射
 
 | 手势 | 行为 | 音乐意图 |
