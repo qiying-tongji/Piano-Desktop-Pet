@@ -6,6 +6,7 @@ import { useMusicIntentStore } from '@/stores/musicIntentStore'
 import { usePerformanceStore } from '@/stores/performanceStore'
 import { getPhraseMemory } from '@/features/music-intent/lib/aiPiano/aiPianoEngine'
 import { getLeftHandChordLabel } from '@/features/music-intent/lib/leftHandChords'
+import { handRoleLabel, normalizeHandSide } from '../lib/intent/handRole'
 
 const STATUS_LABEL: Record<string, string> = {
   idle: '未启动',
@@ -82,7 +83,8 @@ export function GestureIntentOverlay() {
           <div className="rounded-md bg-black/40 px-2 py-1 font-mono text-[8px] leading-relaxed text-white/45">
             {snapshot.hands.map((h) => (
               <div key={h.handIndex}>
-                {h.label}: |v|={h.velocity.magnitude.toFixed(1)} f={h.extendedFingerCount}
+                {handRoleLabel(normalizeHandSide(h.label))} ({h.label}): |v|=
+                {h.velocity.magnitude.toFixed(1)} f={h.extendedFingerCount}
                 {h.isStable ? ' stable' : ''}
               </div>
             ))}

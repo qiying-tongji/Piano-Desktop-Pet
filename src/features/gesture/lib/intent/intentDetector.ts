@@ -32,8 +32,6 @@ export class IntentDetector {
   detect(hands: HandFeatures[]): IntentEvent[] {
     const events: IntentEvent[] = []
     const active = new Set<number>()
-    const singleHand = hands.length === 1
-
     events.push(...this.detectDualHand(hands))
 
     for (const hand of hands) {
@@ -50,8 +48,8 @@ export class IntentDetector {
         this.states.set(hand.handIndex, state)
       }
 
-      events.push(...this.detectExpression(hand, side, state, singleHand))
-      events.push(...this.detectLeftChord(hand, side, state, singleHand))
+      events.push(...this.detectExpression(hand, side, state))
+      events.push(...this.detectLeftChord(hand, side, state))
     }
 
     for (const [key, state] of this.states) {
@@ -132,9 +130,8 @@ export class IntentDetector {
     hand: HandFeatures,
     side: HandSide,
     state: HandFsmState,
-    singleHand: boolean,
   ): IntentEvent[] {
-    if (!singleHand && !isExpressionHand(side)) return []
+    if (!isExpressionHand(side)) return []
 
     const now = hand.timestamp
     const swipeReady = (state.cooldownUntil.swipe ?? 0) <= now
@@ -172,9 +169,8 @@ export class IntentDetector {
     hand: HandFeatures,
     side: HandSide,
     state: HandFsmState,
-    singleHand: boolean,
   ): IntentEvent[] {
-    if (!singleHand && !isWorldHand(side)) return []
+    if (!isWorldHand(side)) return []
 
     const now = hand.timestamp
     const count = hand.extendedFingerCount
