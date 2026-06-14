@@ -1,3 +1,9 @@
+/**
+ * 性能档位状态（Zustand）
+ *
+ * high/balanced/low 三档，控制 MediaPipe 检测间隔、摄像头分辨率、粒子数量等。
+ * 选择持久化至 localStorage。
+ */
 import { create } from 'zustand'
 import {
   getPerformanceProfile,

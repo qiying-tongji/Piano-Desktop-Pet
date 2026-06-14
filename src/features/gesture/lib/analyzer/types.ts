@@ -1,3 +1,8 @@
+/**
+ * 手势分析器输出类型
+ *
+ * 定义归一化坐标、手部速度及单帧分析快照结构。
+ */
 export interface NormPoint {
   x: number
   y: number
@@ -9,22 +14,22 @@ export interface HandVelocity {
   magnitude: number
 }
 
-/** Per-hand features extracted from MediaPipe landmarks (Gesture Analyzer output). */
+/** 从 MediaPipe 关键点提取的单手特征（Gesture Analyzer 输出）。 */
 export interface HandFeatures {
   handIndex: number
   label: string
   timestamp: number
   center: NormPoint
   velocity: HandVelocity
-  /** |velocity| below STABLE_VELOCITY. */
+  /** |velocity| 低于 STABLE_VELOCITY。 */
   isStable: boolean
-  /** 0 = fist, 1 = open palm. */
+  /** 0 = 握拳，1 = 完全张开。 */
   openness: number
-  /** Thumb–index distance (normalized). */
+  /** 拇指–食指距离（归一化）。 */
   pinch: number
-  /** Raised fingers 0–5 (for left-hand chord selection). */
+  /** 伸指数量 0–5（用于左手和弦选择）。 */
   extendedFingerCount: number
-  /** Recent palm centers (oldest first). */
+  /** 近期掌心中心轨迹（旧 → 新）。 */
   trail: NormPoint[]
 }
 

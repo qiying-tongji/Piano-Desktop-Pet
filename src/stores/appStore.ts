@@ -1,6 +1,11 @@
+/**
+ * 应用全局状态（Zustand）
+ *
+ * 管理桌宠/钢琴模式切换、桌宠动画阶段、版本号与窗口错误信息。
+ */
 import { create } from 'zustand'
 
-export type AppMode = 'pet' | 'piano'
+export type AppMode = 'pet' | 'entertainment'
 export type PetPhase = 'idle' | 'hover' | 'pressed' | 'expanding'
 
 export interface AppState {
@@ -17,7 +22,7 @@ export interface AppState {
 }
 
 export const useAppStore = create<AppState>((set) => ({
-  mode: 'pet',
+  mode: 'entertainment',
   isHovered: false,
   petPhase: 'idle',
   version: null,

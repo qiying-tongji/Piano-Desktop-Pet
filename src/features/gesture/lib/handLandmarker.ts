@@ -1,3 +1,8 @@
+/**
+ * MediaPipe 手部关键点检测器
+ *
+ * 单例加载 HandLandmarker 模型，支持本地/远程模型与 GPU/CPU 回退。
+ */
 import { FilesetResolver, HandLandmarker, type HandLandmarkerOptions } from '@mediapipe/tasks-vision'
 import type { NormalizedLandmark } from '@mediapipe/tasks-vision'
 import { HAND_MODEL_URL, HAND_MODEL_URL_REMOTE, WASM_BASE } from './constants'

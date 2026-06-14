@@ -1,3 +1,8 @@
+/**
+ * 手势意图类型与事件
+ *
+ * 定义 swipe/expand/compress/chord 等意图类型及触发事件结构。
+ */
 export type IntentType =
   | 'swipe'
   | 'expand'

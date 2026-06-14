@@ -1,14 +1,19 @@
+/**
+ * 性能档位配置
+ *
+ * high/balanced/low 三档参数：MediaPipe 检测间隔、摄像头分辨率、粒子数量、R3F DPR 等。
+ */
 export type PerformanceQuality = 'high' | 'balanced' | 'low'
 
 export interface PerformanceProfile {
   label: string
-  /** Min ms between MediaPipe detect calls. */
+  /** MediaPipe 两次检测之间的最小间隔（ms） */
   detectIntervalMs: number
   camera: { width: number; height: number }
   ambientParticles: number
   burstParticles: number
   r3fDpr: number
-  /** Min ms between gesture HUD store writes. */
+  /** 手势 HUD 状态写入的最小间隔（ms） */
   hudUpdateMs: number
   visualFxScale: number
 }

@@ -1,3 +1,8 @@
+/**
+ * 桌宠主组件
+ *
+ * 220×220 透明窗内的小钢琴精灵：Framer Motion 悬浮动画、粒子/光晕、双击展开钢琴。
+ */
 import { useCallback } from 'react'
 import { motion } from 'framer-motion'
 import { MiniPianoIcon } from './MiniPianoIcon'

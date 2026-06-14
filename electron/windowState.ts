@@ -1,3 +1,8 @@
+/**
+ * 窗口位置持久化
+ *
+ * 将窗口 bounds 读写至 userData/window-state.json，重启后恢复桌宠位置。
+ */
 import { app } from 'electron'
 import fs from 'node:fs'
 import path from 'node:path'

@@ -1,8 +1,14 @@
+/**
+ * 桌宠动画与展开逻辑 Hook
+ *
+ * 管理 hover/pressed/expanding 阶段；双击后先 resize 窗口，650ms 后切换至 piano 模式。
+ */
 import { useCallback, useState } from 'react'
 import { useAppStore } from '@/stores/appStore'
 
 export type PetAnimPhase = 'idle' | 'hover' | 'pressed' | 'expanding'
 
+/** 展开动画时长（ms），与 Framer Motion 动效对齐 */
 const EXPAND_DURATION_MS = 650
 
 export function usePetAnimation() {
@@ -39,11 +45,11 @@ export function usePetAnimation() {
     setIsExpanding(true)
     setPetPhase('expanding')
 
-    // Resize window first — UI mode switches after the expand animation.
+    // 先 resize 窗口，动画结束后再切换 React 模式
     void window.electronAPI?.setAppWindowMode('piano')
 
     window.setTimeout(async () => {
-      setMode('piano')
+      setMode('entertainment')
       await window.electronAPI?.setAppWindowMode('piano')
       setIsExpanding(false)
       setPetPhase('idle')

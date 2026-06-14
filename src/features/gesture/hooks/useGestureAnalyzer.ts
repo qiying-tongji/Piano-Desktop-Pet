@@ -1,3 +1,8 @@
+/**
+ * 手势分析 Hook
+ *
+ * 对每帧手部数据运行 GestureAnalyzer，并按性能档位节流更新 HUD 快照。
+ */
 import { useCallback, useEffect, useRef } from 'react'
 import { GestureAnalyzer } from '../lib/analyzer/extractHandFeatures'
 import type { AnalyzerSnapshot } from '../lib/analyzer/types'

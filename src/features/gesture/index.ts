@@ -1,4 +1,6 @@
+/** 手势识别模块导出入口 */
 export { ConductGuideCard } from './components/ConductGuideCard'
+export { HandAssignmentPanel } from './components/HandAssignmentPanel'
 export { GestureIntentOverlay, GestureKeyboardOverlay, GestureToggle } from './components/GesturePanel'
 export { HandOverlay } from './components/HandOverlay'
 export { useCamera } from './hooks/useCamera'

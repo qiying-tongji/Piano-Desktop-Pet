@@ -41,6 +41,10 @@ body {
     @apply fixed inset-0 h-full w-full bg-[#07070d]/95;
   }
 
+  .entertainment-shell {
+    @apply fixed inset-0 h-full w-full bg-[#07070d]/95;
+  }
+
   .piano-panel {
     @apply grid h-full w-full overflow-hidden border border-white/10 backdrop-blur-md;
     grid-template-rows: auto auto minmax(clamp(280px, 52vh, 460px), 1fr);

@@ -1,3 +1,8 @@
+/**
+ * 性能档位选择器
+ *
+ * 切换高/平衡/省电三档，影响粒子、检测频率等性能相关配置。
+ */
 import { usePerformanceStore } from '@/stores/performanceStore'
 import type { PerformanceQuality } from '@/shared/lib/performanceProfiles'
 

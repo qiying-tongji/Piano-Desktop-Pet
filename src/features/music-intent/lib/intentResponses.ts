@@ -1,3 +1,8 @@
+/**
+ * 手势意图响应处理
+ *
+ * 将 swipe/expand/compress/chord 等意图事件转为乐句播放与音乐状态更新。
+ */
 import type { IntentEvent, SwipeDirection } from '@/features/gesture/lib/intent/types'
 import { audioEngine } from '@/features/audio/AudioEngine'
 import type { MusicState } from '@/stores/musicIntentStore'
@@ -7,35 +12,53 @@ import {
   getPhraseMemory,
 } from './aiPiano/aiPianoEngine'
 import type { PhraseBehavior } from './aiPiano/types'
-import { getLeftHandChordByFingerCount } from './leftHandChords'
+import { resolveLeftHandVoicing } from './chordMapping'
+import { getTonicChord } from './diatonicHarmony'
+import { mergeHandChordHolds, mergePhraseHighlights } from './handChordState'
+import { getViewportOctaveStart, usePianoStore } from '@/stores/pianoStore'
+import { useMusicIntentStore } from '@/stores/musicIntentStore'
 
 export interface IntentResponseContext {
   musicState: MusicState
   setMusicState: (partial: Partial<MusicState>) => void
 }
 
-const phraseClearTimers = new Map<string, ReturnType<typeof setTimeout>>()
+const phraseClearTimers = new Map<number, ReturnType<typeof setTimeout>>()
 
 function schedulePhraseHighlight(
+  handIndex: number,
   noteNames: string[],
   durationSec: number,
   behavior: PhraseBehavior,
+  musicState: MusicState,
   setMusicState: IntentResponseContext['setMusicState'],
 ): void {
-  const key = 'phrase'
-  const prev = phraseClearTimers.get(key)
+  const prev = phraseClearTimers.get(handIndex)
   if (prev) clearTimeout(prev)
 
+  const phraseHighlightsByHand = {
+    ...musicState.phraseHighlightsByHand,
+    [handIndex]: noteNames,
+  }
+
   setMusicState({
-    phraseHighlightNotes: noteNames,
+    phraseHighlightsByHand,
+    phraseHighlightNotes: mergePhraseHighlights(phraseHighlightsByHand),
     lastPhraseBehavior: behavior,
   })
 
   phraseClearTimers.set(
-    key,
+    handIndex,
     setTimeout(() => {
-      setMusicState({ phraseHighlightNotes: [], lastPhraseBehavior: null })
-      phraseClearTimers.delete(key)
+      const current = useMusicIntentStore.getState().musicState
+      const nextByHand = { ...current.phraseHighlightsByHand }
+      delete nextByHand[handIndex]
+      setMusicState({
+        phraseHighlightsByHand: nextByHand,
+        phraseHighlightNotes: mergePhraseHighlights(nextByHand),
+        lastPhraseBehavior: Object.keys(nextByHand).length > 0 ? current.lastPhraseBehavior : null,
+      })
+      phraseClearTimers.delete(handIndex)
     }, durationSec * 1000 + 120),
   )
 }
@@ -48,11 +71,22 @@ function playPhrase(
   setMusicState: IntentResponseContext['setMusicState'],
   audioReady: boolean,
 ): void {
+  const { harmonicSettings } = useMusicIntentStore.getState()
+  const scrollPosition = usePianoStore.getState().scrollPosition
+  const octaveAnchor = getViewportOctaveStart(scrollPosition)
+
+  const referenceChordNotes =
+    musicState.isHolding && musicState.activeChordNotes.length > 0
+      ? musicState.activeChordNotes
+      : getTonicChord(harmonicSettings.keyId, harmonicSettings.harmonyMode, scrollPosition).notes
+
   const phrase = generatePhrase({
     behavior,
     direction,
     chord: musicState.chord,
-    scale: musicState.scale,
+    octaveStart: octaveAnchor,
+    harmonicKey: harmonicSettings.keyId,
+    chordNotes: referenceChordNotes,
     energy: musicState.energy,
     tension: musicState.tension,
     strength: event.strength,
@@ -60,9 +94,11 @@ function playPhrase(
   })
 
   schedulePhraseHighlight(
+    event.handIndex,
     phrase.notes.map((n) => n.note),
     phrase.durationSec,
     behavior,
+    musicState,
     setMusicState,
   )
 
@@ -126,30 +162,48 @@ export function handleIntentEvent(event: IntentEvent, ctx: IntentResponseContext
     }
     case 'chord_select': {
       const fingerCount = event.fingerCount ?? 0
-      const chord = getLeftHandChordByFingerCount(fingerCount)
+      const { harmonicSettings } = useMusicIntentStore.getState()
+      const scrollPosition = usePianoStore.getState().scrollPosition
+      const chord = resolveLeftHandVoicing(fingerCount, scrollPosition, harmonicSettings)
       if (!chord) break
+
+      const handChordHolds = {
+        ...musicState.handChordHolds,
+        [event.handIndex]: {
+          handIndex: event.handIndex,
+          side: event.hand,
+          fingerCount,
+          chordId: chord.id,
+          root: chord.notes[0],
+          notes: [...chord.notes],
+        },
+      }
+
       setMusicState({
-        chord: chord.id,
-        root: chord.notes[0],
-        activeChordNotes: [...chord.notes],
-        leftFingerCount: fingerCount,
-        isHolding: true,
+        handChordHolds,
+        ...mergeHandChordHolds(handChordHolds),
         ambience: Math.min(1, musicState.ambience + 0.05),
         lastIntentAt: event.timestamp,
       })
       if (audioReady) {
-        audioEngine.playGestureChord(chord.notes, 0.62 + event.strength * 0.28)
+        audioEngine.setGestureChordForHand(
+          event.handIndex,
+          chord.notes,
+          0.62 + event.strength * 0.28,
+        )
       }
       break
     }
     case 'chord_release': {
+      const handChordHolds = { ...musicState.handChordHolds }
+      delete handChordHolds[event.handIndex]
+
       setMusicState({
-        isHolding: false,
-        activeChordNotes: [],
-        leftFingerCount: 0,
+        handChordHolds,
+        ...mergeHandChordHolds(handChordHolds),
       })
       if (audioReady) {
-        audioEngine.releaseGestureChord()
+        audioEngine.releaseGestureChordForHand(event.handIndex)
       }
       break
     }

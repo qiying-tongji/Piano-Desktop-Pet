@@ -1,6 +1,11 @@
+/**
+ * One Euro 滤波器
+ *
+ * 1€ 滤波 — 快速运动时低延迟，慢速运动时平滑稳定。
+ */
 import { ONE_EURO_BETA, ONE_EURO_MIN_CUTOFF } from '../constants'
 
-/** 1€ filter — low lag on fast motion, smooth on slow motion. */
+/** 1€ 滤波 — 快速运动低延迟，慢速运动更平滑。 */
 export class OneEuroFilter {
   private readonly minCutoff: number
   private readonly beta: number

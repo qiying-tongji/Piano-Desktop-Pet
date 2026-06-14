@@ -1,3 +1,8 @@
+/**
+ * Electron 环境门禁
+ *
+ * 非 Electron 环境（如浏览器直接打开 localhost）时显示引导页，避免误用。
+ */
 import { isElectron } from '@/shared/lib/electron'
 
 export function ElectronGate({ children }: { children: React.ReactNode }) {

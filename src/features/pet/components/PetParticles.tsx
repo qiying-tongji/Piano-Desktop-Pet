@@ -1,3 +1,8 @@
+/**
+ * 宠物环境粒子
+ *
+ * 在桌面宠物周围渲染轻量 Three.js 漂浮粒子，活跃时密度与亮度略增。
+ */
 import { useRef, useMemo } from 'react'
 import { Canvas, useFrame } from '@react-three/fiber'
 import * as THREE from 'three'

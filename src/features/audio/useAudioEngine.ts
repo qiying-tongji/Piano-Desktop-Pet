@@ -1,3 +1,8 @@
+/**
+ * 音频引擎 React Hook
+ *
+ * 桥接 AudioEngine 单例与 audioStore：初始化、音量/混响/延音同步、noteOn/noteOff。
+ */
 import { useCallback, useEffect } from 'react'
 import { audioEngine } from './AudioEngine'
 import { useAudioStore } from '@/stores/audioStore'

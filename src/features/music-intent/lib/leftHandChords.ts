@@ -1,26 +1,50 @@
-/** Left hand finger count → basic triads on the 2-octave keyboard (C3–B4). */
-export interface LeftHandChord {
-  fingerCount: 1 | 2 | 3 | 4 | 5
-  id: string
-  name: string
-  /** Piano key notes highlighted + pad voicing. */
-  notes: string[]
+/**
+ * 左手和弦解析
+ *
+ * 基于调性 + 和弦模式 + 级数（I–V）解析伸指 → 和弦 voicing。
+ */
+import {
+  resolveDiatonicChord,
+  getLeftHandChordLabel as diatonicLabel,
+  loadHarmonicSettings,
+  type ChordHarmonyMode,
+  type FingerCount,
+  type HarmonicSettings,
+  type KeyId,
+} from './diatonicHarmony'
+import { usePianoStore } from '@/stores/pianoStore'
+
+export type { KeyId, ChordHarmonyMode, HarmonicSettings, FingerCount }
+
+export function getHarmonicSettings(): HarmonicSettings {
+  return loadHarmonicSettings()
 }
 
-export const LEFT_HAND_CHORDS: readonly LeftHandChord[] = [
-  { fingerCount: 1, id: 'C', name: 'C', notes: ['C3', 'E3', 'G3'] },
-  { fingerCount: 2, id: 'Dm', name: 'Dm', notes: ['D3', 'F3', 'A3'] },
-  { fingerCount: 3, id: 'Em', name: 'Em', notes: ['E3', 'G3', 'B3'] },
-  { fingerCount: 4, id: 'F', name: 'F', notes: ['F3', 'A3', 'C4'] },
-  { fingerCount: 5, id: 'G', name: 'G', notes: ['G3', 'B3', 'D4'] },
-] as const
-
-export function getLeftHandChordByFingerCount(count: number): LeftHandChord | null {
+export function getLeftHandChordByFingerCount(
+  count: number,
+  scrollPosition = usePianoStore.getState().scrollPosition,
+  settings = loadHarmonicSettings(),
+): { id: string; name: string; notes: string[]; chordTones: string[] } | null {
   if (count < 1 || count > 5) return null
-  return LEFT_HAND_CHORDS.find((c) => c.fingerCount === count) ?? null
+  const resolved = resolveDiatonicChord(
+    settings.keyId,
+    settings.harmonyMode,
+    count as FingerCount,
+    scrollPosition,
+    settings.inversion,
+  )
+  return {
+    id: resolved.id,
+    name: resolved.name,
+    notes: resolved.notes,
+    chordTones: resolved.chordTones,
+  }
 }
 
-export function getLeftHandChordLabel(count: number): string {
-  const chord = getLeftHandChordByFingerCount(count)
-  return chord ? `${count}指 · ${chord.name}` : `${count}指`
+export function getLeftHandChordLabel(
+  count: number,
+  keyId: KeyId = loadHarmonicSettings().keyId,
+  harmonyMode: ChordHarmonyMode = loadHarmonicSettings().harmonyMode,
+): string {
+  return diatonicLabel(count, keyId, harmonyMode)
 }

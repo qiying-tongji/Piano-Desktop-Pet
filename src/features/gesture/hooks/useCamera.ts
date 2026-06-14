@@ -1,3 +1,8 @@
+/**
+ * 摄像头访问 Hook
+ *
+ * 请求用户媒体流并绑定到 video 元素，含常见权限/占用错误的本地化提示。
+ */
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { usePerformanceStore } from '@/stores/performanceStore'
 

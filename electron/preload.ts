@@ -1,7 +1,13 @@
+/**
+ * Electron 预加载脚本
+ *
+ * 通过 contextBridge 向渲染进程暴露安全的 electronAPI，隔离 Node 与页面上下文。
+ */
 import { contextBridge, ipcRenderer } from 'electron'
 import type { AppInfo, AppWindowMode, WindowBounds } from './ipc/channels'
 import { IPC_CHANNELS } from './ipc/channels'
 
+/** 渲染进程可调用的 Electron API 类型定义 */
 export interface ElectronAPI {
   getAppInfo: () => Promise<AppInfo>
   setIgnoreMouseEvents: (ignore: boolean, forward?: boolean) => Promise<void>

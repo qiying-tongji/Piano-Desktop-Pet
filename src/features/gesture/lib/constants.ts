@@ -1,16 +1,21 @@
-/** Palm center landmark indices (wrist + MCP joints). */
+/**
+ * 手势分析常量
+ *
+ * 手部骨架连接、滤波参数、模型路径及追踪相关阈值。
+ */
+/** 掌心中心所用关键点索引（腕部 + MCP 关节）。 */
 export const PALM_LANDMARKS = [0, 5, 9, 13, 17] as const
 
 export const TRAIL_LENGTH = 24
 
-/** Velocity below this (norm coords / sec) counts as stable. */
+/** 低于此速度（归一化坐标/秒）视为稳定。 */
 export const STABLE_VELOCITY = 0.15
 
-/** One Euro Filter defaults. */
+/** One Euro 滤波器默认参数。 */
 export const ONE_EURO_MIN_CUTOFF = 1.0
 export const ONE_EURO_BETA = 0.007
 
-/** Served from public/mediapipe/wasm (see scripts/sync-gesture-assets.mjs). */
+/** 由 public/mediapipe/wasm 提供（见 scripts/sync-gesture-assets.mjs）。 */
 export const WASM_BASE = `${import.meta.env.BASE_URL}mediapipe/wasm`
 
 export const HAND_MODEL_URL = `${import.meta.env.BASE_URL}models/hand_landmarker.task`
@@ -18,7 +23,7 @@ export const HAND_MODEL_URL = `${import.meta.env.BASE_URL}models/hand_landmarker
 export const HAND_MODEL_URL_REMOTE =
   'https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task'
 
-/** MediaPipe hand skeleton edge list (landmark index pairs). */
+/** MediaPipe 手部骨架边列表（关键点索引对）。 */
 export const HAND_CONNECTIONS: ReadonlyArray<readonly [number, number]> = [
   [0, 1],
   [1, 2],

@@ -1,26 +1,27 @@
+/**
+ * 中央音频引擎（单例）
+ *
+ * 所有音符播放统一经此服务：Salamander 钢琴采样 + Reverb + Volume。
+ * 支持键盘 noteOn/noteOff、手势短语 playPianoPhrase、左手和弦 playGestureChord。
+ */
 import * as Tone from 'tone'
 
+/** Salamander 钢琴采样 CDN 基址（打包后仍依赖外网） */
 const SALAMANDER_BASE = 'https://tonejs.github.io/audio/salamander/'
 
-/**
- * Central audio service — all note playback goes through here.
- * Architecture allows future MIDI / drum machine extensions.
- */
 class AudioEngine {
   private sampler: Tone.Sampler | null = null
   private reverb: Tone.Reverb | null = null
   private volume: Tone.Volume | null = null
+  private recordDestination: MediaStreamAudioDestinationNode | null = null
   private initialized = false
   private loading: Promise<void> | null = null
   private heldNotes = new Set<string>()
   private sustainEnabled = false
-  private gestureLead: Tone.PolySynth | null = null
-  private gesturePad: Tone.PolySynth | null = null
-  private gestureBus: Tone.Filter | null = null
-  private padNotes = new Set<string>()
-  private chordPianoNotes = new Set<string>()
-  private gestureSequence: Tone.Sequence | null = null
+  /** 每只手（MediaPipe handIndex）独立按住的手势和弦音 */
+  private chordPianoNotesByHand = new Map<number, Set<string>>()
 
+  /** 加载 Tone.js、采样器与混响 */
   async init(): Promise<void> {
     if (this.initialized) return
     if (this.loading) return this.loading
@@ -29,7 +30,12 @@ class AudioEngine {
       try {
         await Tone.start()
 
-        this.volume = new Tone.Volume(Tone.gainToDb(0.75)).toDestination()
+        this.volume = new Tone.Volume(Tone.gainToDb(0.75))
+        this.volume.toDestination()
+
+        this.recordDestination = Tone.getContext().createMediaStreamDestination()
+        this.volume.connect(this.recordDestination)
+
         this.reverb = new Tone.Reverb({ decay: 2.8, wet: 0.28 }).connect(this.volume)
         await this.reverb.generate()
 
@@ -60,27 +66,6 @@ class AudioEngine {
         }).connect(this.reverb)
 
         await Tone.loaded()
-
-        this.gestureLead = new Tone.PolySynth(Tone.Synth, {
-          oscillator: { type: 'triangle8' },
-          envelope: { attack: 0.02, decay: 0.3, sustain: 0.15, release: 0.8 },
-        })
-
-        this.gesturePad = new Tone.PolySynth(Tone.AMSynth, {
-          harmonicity: 2.5,
-          envelope: { attack: 0.8, decay: 0.4, sustain: 0.85, release: 1.8 },
-        })
-        this.gesturePad.volume.value = -10
-
-        this.gestureBus = new Tone.Filter({
-          type: 'lowpass',
-          frequency: 4200,
-          rolloff: -12,
-        })
-        this.gestureLead.connect(this.gestureBus)
-        this.gesturePad.connect(this.gestureBus)
-        this.gestureBus.connect(this.reverb!)
-
         this.initialized = true
       } catch (err) {
         this.loading = null
@@ -94,6 +79,11 @@ class AudioEngine {
 
   get ready(): boolean {
     return this.initialized
+  }
+
+  /** 混音后、音量节点输出的 MediaStream，供录制使用 */
+  getRecordStream(): MediaStream | null {
+    return this.recordDestination?.stream ?? null
   }
 
   setVolume(linear: number): void {
@@ -119,7 +109,13 @@ class AudioEngine {
   noteOn(note: string, velocity = 0.85): void {
     if (!this.sampler) return
     void Tone.start()
-    this.sampler.triggerAttack(note, Tone.now(), velocity)
+    const now = Tone.now()
+    // 同音连打：先释放再 attack，否则 Sampler 不会再次发声
+    if (this.heldNotes.has(note)) {
+      this.sampler.triggerRelease(note, now)
+      this.heldNotes.delete(note)
+    }
+    this.sampler.triggerAttack(note, now, velocity)
     this.heldNotes.add(note)
   }
 
@@ -135,7 +131,7 @@ class AudioEngine {
     this.heldNotes.clear()
   }
 
-  /** Play a generated piano phrase (0.5–1.5s). */
+  /** 播放 AI Piano 生成的短语（0.5–1.5 秒，多音符序列） */
   playPianoPhrase(
     notes: { note: string; time: number; velocity: number; duration: string }[],
   ): void {
@@ -147,7 +143,7 @@ class AudioEngine {
     }
   }
 
-  /** Cinematic climax — wider space, stronger pedal. */
+  /** 双手张开意图：混响 swell，营造电影感高潮 */
   applyCinematicClimax(amount = 0.35): void {
     if (!this.reverb) return
     const wet = Math.min(0.62, 0.28 + amount)
@@ -155,7 +151,7 @@ class AudioEngine {
     this.reverb.wet.rampTo(0.28, 0.35, '+1.4')
   }
 
-  /** Intimate felt piano — drier, closer. */
+  /** 双手收拢意图：降低混响，营造亲密干燥声场 */
   applyIntimateFelt(amount = 0.4): void {
     if (!this.reverb) return
     const wet = Math.max(0.08, 0.28 - amount * 0.18)
@@ -163,118 +159,70 @@ class AudioEngine {
     this.reverb.wet.rampTo(0.28, 0.4, '+1.6')
   }
 
-  /** Gesture intent — short melodic note on piano sampler. */
-  playGestureLead(note: string, velocity = 0.7, duration: string = '8n'): void {
+  /** 单手手势和弦：仅更新该 handIndex 的音符，与其他手叠加 */
+  setGestureChordForHand(handIndex: number, notes: string[], velocity = 0.72): void {
     if (!this.sampler) return
     void Tone.start()
-    this.sampler.triggerAttackRelease(note, duration, Tone.now(), velocity)
+
+    const prevNotes = this.chordPianoNotesByHand.get(handIndex) ?? new Set<string>()
+    const nextNotes = new Set(notes)
+    const now = Tone.now()
+
+    for (const note of prevNotes) {
+      if (!nextNotes.has(note) && !this.isNoteHeldByOtherHand(handIndex, note)) {
+        this.sampler.triggerRelease(note, now)
+        this.heldNotes.delete(note)
+      }
+    }
+
+    for (const note of nextNotes) {
+      if (!prevNotes.has(note) && !this.isNoteHeldByOtherHand(handIndex, note)) {
+        this.sampler.triggerAttack(note, now, velocity)
+      }
+    }
+
+    this.chordPianoNotesByHand.set(handIndex, nextNotes)
   }
 
-  /** Left-hand chord — piano sampler (matches lit keys). */
-  playGestureChord(notes: string[], velocity = 0.72): void {
+  releaseGestureChordForHand(handIndex: number): void {
     if (!this.sampler) return
-    void Tone.start()
-    this.releaseGestureChord()
+    const notes = this.chordPianoNotesByHand.get(handIndex)
+    if (!notes) return
+
     const now = Tone.now()
     for (const note of notes) {
-      this.sampler.triggerAttack(note, now, velocity)
-      this.chordPianoNotes.add(note)
+      if (!this.isNoteHeldByOtherHand(handIndex, note)) {
+        this.sampler.triggerRelease(note, now)
+        this.heldNotes.delete(note)
+      }
     }
+    this.chordPianoNotesByHand.delete(handIndex)
   }
 
+  /** 释放所有手势和弦 */
   releaseGestureChord(): void {
     if (!this.sampler) return
     const now = Tone.now()
-    for (const note of this.chordPianoNotes) {
-      this.sampler.triggerRelease(note, now)
-      this.heldNotes.delete(note)
+    for (const notes of this.chordPianoNotesByHand.values()) {
+      for (const note of notes) {
+        this.sampler.triggerRelease(note, now)
+        this.heldNotes.delete(note)
+      }
     }
-    this.chordPianoNotes.clear()
+    this.chordPianoNotesByHand.clear()
   }
 
-  /** Gesture intent — sustained ambient pad chord. */
-  playGesturePad(notes: string[], velocity = 0.4): void {
-    if (!this.gesturePad) return
-    this.releaseGesturePad()
-    const now = Tone.now()
-    for (const note of notes) {
-      this.gesturePad.triggerAttack(note, now, velocity)
-      this.padNotes.add(note)
+  private isNoteHeldByOtherHand(excludeHand: number, note: string): boolean {
+    for (const [idx, set] of this.chordPianoNotesByHand) {
+      if (idx !== excludeHand && set.has(note)) return true
     }
+    return false
   }
 
-  releaseGesturePad(): void {
-    if (!this.gesturePad) return
-    const now = Tone.now()
-    for (const note of this.padNotes) {
-      this.gesturePad.triggerRelease(note, now)
-    }
-    this.padNotes.clear()
-  }
-
-  /** Gesture intent — staggered piano arpeggio. */
-  playGestureArpeggio(notes: string[], velocity = 0.5, gapSec = 0.09): void {
-    if (!this.sampler) return
-    void Tone.start()
-    const now = Tone.now()
-    notes.forEach((note, i) => {
-      this.sampler!.triggerAttackRelease(
-        note,
-        '16n',
-        now + i * gapSec,
-        velocity * (1 - i * 0.06),
-      )
-    })
-  }
-
-  releaseGestureAudio(): void {
-    this.stopGestureLoop()
-    this.releaseGesturePad()
+  /** @deprecated 请使用 setGestureChordForHand */
+  playGestureChord(notes: string[], velocity = 0.72): void {
     this.releaseGestureChord()
-  }
-
-  /** Start looping arpeggiator on piano sampler. */
-  startGestureLoop(notes: string[], velocity = 0.42, intervalSec = 0.28): void {
-    if (!this.sampler || notes.length === 0) return
-    void Tone.start()
-    this.stopGestureLoop()
-
-    this.gestureSequence = new Tone.Sequence(
-      (time, note) => {
-        if (typeof note === 'string') {
-          this.sampler?.triggerAttackRelease(note, '16n', time, velocity)
-        }
-      },
-      notes,
-      intervalSec,
-    )
-    this.gestureSequence.loop = true
-    this.gestureSequence.start(0)
-  }
-
-  stopGestureLoop(): void {
-    if (this.gestureSequence) {
-      this.gestureSequence.stop()
-      this.gestureSequence.dispose()
-      this.gestureSequence = null
-    }
-  }
-
-  isGestureLoopActive(): boolean {
-    return this.gestureSequence !== null
-  }
-
-  /** Energy is reflected in HUD/particles; piano timbre stays consistent. */
-  setGestureEnergy(_energy: number): void {
-    // no-op — melody uses the same sampler as keyboard
-  }
-
-  /** Brief reverb swell on expand. */
-  pulseGestureSpace(amount: number): void {
-    if (!this.reverb) return
-    const wet = Math.min(0.55, 0.28 + amount)
-    this.reverb.wet.rampTo(wet, 0.15)
-    this.reverb.wet.rampTo(0.28, 0.15, '+0.8')
+    this.setGestureChordForHand(0, notes, velocity)
   }
 }
 

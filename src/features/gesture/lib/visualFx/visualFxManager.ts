@@ -1,3 +1,8 @@
+/**
+ * 手势视觉特效管理器
+ *
+ * 管理粒子、光环与轨迹丝带，根据意图类型在画布上绘制反馈动画。
+ */
 import type { HandFeatures } from '../analyzer/types'
 import type { IntentEvent, SwipeDirection } from '../intent/types'
 

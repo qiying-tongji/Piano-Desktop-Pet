@@ -1,3 +1,8 @@
+/**
+ * Electron 主进程入口
+ *
+ * 职责：创建透明桌宠窗口、注册 IPC、授予摄像头/媒体权限、管理应用生命周期。
+ */
 import { app, BrowserWindow, session } from 'electron'
 import fs from 'node:fs'
 import path from 'node:path'
@@ -6,8 +11,8 @@ import { registerIpcHandlers, unregisterIpcHandlers } from './ipc/handlers'
 import {
   attachWindowStatePersistence,
   createPetWindowOptions,
+  setAppWindowModeForWindow,
   setMainWindow,
-  showPetWindow,
 } from './windowManager'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
@@ -18,6 +23,7 @@ const VITE_DEV_SERVER_URL = process.env.VITE_DEV_SERVER_URL
 
 let mainWindow: BrowserWindow | null = null
 
+/** 创建主窗口并加载 Vite 开发服务器或打包后的 dist/index.html */
 function createWindow(): void {
   const preloadPath = path.join(__dirname, 'preload.cjs')
   if (!fs.existsSync(preloadPath)) {
@@ -45,13 +51,15 @@ function createWindow(): void {
 
   mainWindow.once('ready-to-show', () => {
     if (mainWindow) {
-      showPetWindow(mainWindow)
+      setAppWindowModeForWindow(mainWindow, 'piano')
+      mainWindow.show()
       mainWindow.focus()
     }
   })
 }
 
 app.whenReady().then(() => {
+  // 手势识别需要摄像头，仅允许 media 相关权限
   session.defaultSession.setPermissionRequestHandler((_wc, permission, callback) => {
     const allowed = permission === 'media' || permission === 'mediaKeySystem'
     callback(allowed)

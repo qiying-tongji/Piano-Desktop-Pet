@@ -1,3 +1,8 @@
+/**
+ * 手势叠加层（HandOverlay）
+ *
+ * 意图管道汇合点：摄像头 → MediaPipe → 特征分析 → 意图检测 → 音乐响应 → Canvas 绘制。
+ */
 import { useCallback, useEffect, useRef } from 'react'
 import { useCamera } from '../hooks/useCamera'
 import { useGestureAnalyzer } from '../hooks/useGestureAnalyzer'

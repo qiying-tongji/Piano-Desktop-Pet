@@ -1,4 +1,9 @@
-/** One octave keyboard layout — indices of white keys that have a black key to their right. */
+/**
+ * 迷你钢琴图标（SVG）
+ *
+ * 单八度键盘造型，用于宠物界面入口；hover/激活时增强霓虹光晕。
+ */
+/** 单八度布局 — 右侧有黑键的白键序号集合。 */
 const BLACK_KEY_AFTER_WHITE = new Set([0, 1, 3, 4, 5])
 
 const WHITE_KEY_COUNT = 7
@@ -10,7 +15,7 @@ const KEY_START_X = 14.5
 
 interface MiniPianoIconProps {
   className?: string
-  /** Intensify neon glow (hover / active). */
+  /** 增强霓虹光晕（悬停/激活时）。 */
   active?: boolean
 }
 
@@ -52,7 +57,7 @@ export function MiniPianoIcon({ className, active = false }: MiniPianoIconProps)
         </filter>
       </defs>
 
-      {/* Piano body */}
+      {/* 琴身 */}
       <rect
         x="10"
         y="40"
@@ -66,7 +71,7 @@ export function MiniPianoIcon({ className, active = false }: MiniPianoIconProps)
       />
       {active && <rect x="12" y="42" width="64" height="2" rx="1" fill="url(#piano-rim)" />}
 
-      {/* White keys */}
+      {/* 白键 */}
       {whiteKeys.map(({ x, i }) => (
         <rect
           key={`w-${i}`}
@@ -81,7 +86,7 @@ export function MiniPianoIcon({ className, active = false }: MiniPianoIconProps)
         />
       ))}
 
-      {/* Black keys */}
+      {/* 黑键 */}
       {blackKeys.map(({ x }, i) => (
         <rect
           key={`b-${i}`}
@@ -96,11 +101,11 @@ export function MiniPianoIcon({ className, active = false }: MiniPianoIconProps)
         />
       ))}
 
-      {/* Legs */}
+      {/* 琴腿 */}
       <rect x="18" y="62" width="4" height="6" rx="1" fill="#2a2a3a" />
       <rect x="66" y="62" width="4" height="6" rx="1" fill="#2a2a3a" />
 
-      {/* Music stand hint */}
+      {/* 谱架示意 */}
       <path
         d="M36 40 L44 34 L52 40"
         stroke={active ? 'rgba(167,139,250,0.4)' : 'rgba(255,255,255,0.15)'}

@@ -1,4 +1,10 @@
+/**
+ * 钢琴演奏 Hook
+ *
+ * 封装音频引擎初始化与 noteOn/noteOff；noteOn 同步触发，避免 async 延迟。
+ */
 import { useCallback } from 'react'
+import { audioEngine } from '@/features/audio/AudioEngine'
 import { useAudioEngine } from '@/features/audio'
 import type { InputSource } from '@/shared/types/note'
 
@@ -10,11 +16,17 @@ export function usePianoPlay() {
   }, [init])
 
   const playNote = useCallback(
-    async (note: string, source: InputSource = 'mouse') => {
-      await ensureReady()
-      noteOn(note, source)
+    (note: string, source: InputSource = 'mouse') => {
+      if (audioEngine.ready) {
+        noteOn(note, source)
+        return
+      }
+      // 首次点击时异步加载，加载完成后补发该音
+      void init().then(() => {
+        if (audioEngine.ready) noteOn(note, source)
+      })
     },
-    [ensureReady, noteOn],
+    [init, noteOn],
   )
 
   const releaseNote = useCallback(

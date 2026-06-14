@@ -1,3 +1,9 @@
+/**
+ * 音频 UI 状态（Zustand）
+ *
+ * 活跃音符集合、音量/混响/延音踏板、引擎就绪与加载状态。
+ * 实际发声由 AudioEngine 单例负责，本 store 供 UI 订阅与同步。
+ */
 import { create } from 'zustand'
 
 interface AudioState {

@@ -1,5 +1,11 @@
+/**
+ * 手势意图检测器
+ *
+ * 有限状态机：右手四向挥动、双手张合、左手 1–5 指和弦选择/释放。
+ */
 import type { HandFeatures } from '../analyzer/types'
 import {
+  CHORD_FINGER_ADJACENT_STABLE_MS,
   CHORD_FINGER_STABLE_MS,
   COMPRESS_COOLDOWN_MS,
   DUAL_COMPRESS_DISTANCE_DELTA,
@@ -13,10 +19,11 @@ import {
   SWIPE_VX_THRESHOLD,
   SWIPE_VY_THRESHOLD,
 } from './config'
-import { isExpressionHand, isWorldHand, normalizeHandSide } from './handRole'
+import { handSupportsChord, handSupportsIntent, normalizeHandSide } from './handRole'
 import type { HandSide, IntentEvent, SwipeDirection } from './types'
 
 interface HandFsmState {
+  side: HandSide
   pendingFingerCount: number | null
   pendingSince: number
   activeFingerCount: number | null
@@ -40,12 +47,15 @@ export class IntentDetector {
       let state = this.states.get(hand.handIndex)
       if (!state) {
         state = {
+          side,
           pendingFingerCount: null,
           pendingSince: hand.timestamp,
           activeFingerCount: null,
           cooldownUntil: {},
         }
         this.states.set(hand.handIndex, state)
+      } else {
+        state.side = side
       }
 
       events.push(...this.detectExpression(hand, side, state))
@@ -57,7 +67,7 @@ export class IntentDetector {
       if (state.activeFingerCount !== null) {
         events.push({
           type: 'chord_release',
-          hand: 'left',
+          hand: state.side,
           handIndex: key,
           strength: 0.5,
           timestamp: performance.now(),
@@ -79,6 +89,11 @@ export class IntentDetector {
   /** Both hands — expand (spread) / compress (close). */
   private detectDualHand(hands: HandFeatures[]): IntentEvent[] {
     if (hands.length < 2) return []
+
+    const sides = hands.map((h) => normalizeHandSide(h.label))
+    const allChord = sides.every((s) => handSupportsChord(s))
+    if (allChord) return []
+
     const now = hands[0].timestamp
     if (now < this.dualCooldownUntil) return []
 
@@ -131,7 +146,7 @@ export class IntentDetector {
     side: HandSide,
     state: HandFsmState,
   ): IntentEvent[] {
-    if (!isExpressionHand(side)) return []
+    if (!handSupportsIntent(side)) return []
 
     const now = hand.timestamp
     const swipeReady = (state.cooldownUntil.swipe ?? 0) <= now
@@ -170,7 +185,7 @@ export class IntentDetector {
     side: HandSide,
     state: HandFsmState,
   ): IntentEvent[] {
-    if (!isWorldHand(side)) return []
+    if (!handSupportsChord(side)) return []
 
     const now = hand.timestamp
     const count = hand.extendedFingerCount
@@ -181,7 +196,13 @@ export class IntentDetector {
       state.pendingSince = now
     }
 
-    if (now - state.pendingSince < CHORD_FINGER_STABLE_MS) return events
+    const prevActive = state.activeFingerCount
+    const pending = state.pendingFingerCount ?? count
+    const adjacentToActive =
+      prevActive !== null && pending >= 1 && pending <= 5 && Math.abs(pending - prevActive) === 1
+    const stableMs = adjacentToActive ? CHORD_FINGER_ADJACENT_STABLE_MS : CHORD_FINGER_STABLE_MS
+
+    if (now - state.pendingSince < stableMs) return events
 
     if (count >= 1 && count <= 5) {
       if (state.activeFingerCount === count) return events

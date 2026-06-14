@@ -1,8 +1,12 @@
+/**
+ * 钢琴模式窗口 Hook
+ *
+ * 挂载时通过 IPC 确保 Electron 窗口展开为全屏钢琴尺寸。
+ */
 import { useEffect } from 'react'
 import { hasElectronAPI } from '@/shared/lib/electron'
 import { useAppStore } from '@/stores/appStore'
 
-/** Ensure the Electron window expands to piano fullscreen when this mode mounts. */
 export function usePianoWindowMode(): void {
   const setWindowError = useAppStore((s) => s.setWindowError)
 
@@ -23,6 +27,7 @@ export function usePianoWindowMode(): void {
     }
 
     void apply()
+    // Windows 透明窗 resize 偶发延迟，100ms/500ms 重试
     const t1 = window.setTimeout(() => void apply(), 100)
     const t2 = window.setTimeout(() => void apply(), 500)
 

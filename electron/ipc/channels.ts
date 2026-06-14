@@ -1,4 +1,9 @@
-/** IPC channel names shared between main and renderer. */
+/**
+ * IPC 通道名与共享类型
+ *
+ * 主进程与渲染进程共用的通道常量、AppInfo、WindowBounds、AppWindowMode 定义。
+ */
+/** IPC 通道名（主进程 ↔ 渲染进程） */
 export const IPC_CHANNELS = {
   GET_APP_INFO: 'app:get-info',
   WINDOW_SET_IGNORE_MOUSE: 'window:set-ignore-mouse',

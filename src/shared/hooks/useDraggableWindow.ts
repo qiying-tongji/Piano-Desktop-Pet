@@ -1,3 +1,9 @@
+/**
+ * 窗口拖拽 Hook
+ *
+ * 通过 IPC 通知主进程开始/结束指针轮询拖拽；展开钢琴由双击单独处理。
+ * 注：当前项目主要使用 CSS -webkit-app-region: drag，本 Hook 为备用方案。
+ */
 import { useCallback, useRef } from 'react'
 
 interface UseDraggableWindowOptions {
@@ -5,7 +11,6 @@ interface UseDraggableWindowOptions {
   disabled?: boolean
 }
 
-/** Full-surface drag via main-process cursor polling. Expand is handled via double-click separately. */
 export function useDraggableWindow({ onRelease, disabled = false }: UseDraggableWindowOptions = {}) {
   const activeRef = useRef(false)
 
@@ -26,7 +31,7 @@ export function useDraggableWindow({ onRelease, disabled = false }: UseDraggable
       try {
         target.setPointerCapture(pointerId)
       } catch {
-        // ignore — document fallback below
+        // 部分环境 setPointerCapture 可能失败，下方 document 级监听作为兜底
       }
 
       api.beginWindowInteraction()

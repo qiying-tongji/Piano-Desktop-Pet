@@ -1,8 +1,13 @@
+/**
+ * 窗口管理器
+ *
+ * 职责：桌宠/钢琴模式切换、窗口 bounds 应用与持久化、主进程指针轮询拖拽。
+ */
 import { BrowserWindow, screen } from 'electron'
 import type { AppWindowMode, WindowBounds } from './ipc/channels'
 import { loadWindowBounds, saveWindowBounds } from './windowState'
 
-/** Default desktop pet window size (compact corner sprite). */
+/** 桌宠模式默认窗口尺寸（紧凑小精灵） */
 export const PET_WINDOW = {
   width: 220,
   height: 220,
@@ -19,14 +24,14 @@ export function setMainWindow(win: BrowserWindow | null): void {
   mainWindow = win
 }
 
-/** Full-screen piano bounds on the display that contains the window. */
+/** 钢琴模式：占满当前窗口所在显示器的工作区 */
 export function getPianoFullscreenBounds(win: BrowserWindow): WindowBounds {
   const display = screen.getDisplayMatching(win.getBounds())
   const { x, y, width, height } = display.workArea
   return { x, y, width, height }
 }
 
-/** Keep window fully inside the nearest display work area. */
+/** 将窗口 bounds 限制在最近显示器的工作区内 */
 export function clampBounds(bounds: WindowBounds): WindowBounds {
   const display = screen.getDisplayMatching(bounds)
   const { x: workX, y: workY, width: workW, height: workH } = display.workArea
@@ -50,7 +55,7 @@ function getCenterBounds(width: number, height: number): WindowBounds {
   })
 }
 
-/** Electron: 0 = no constraint. Must clear before resizing frameless windows on Windows. */
+/** Electron 中 0 表示无约束；Windows 无边框窗 resize 前须先清除 min/max 锁 */
 function clearSizeConstraints(win: BrowserWindow): void {
   win.setMinimumSize(0, 0)
   win.setMaximumSize(0, 0)
@@ -68,7 +73,7 @@ function applyWindowBounds(win: BrowserWindow, bounds: WindowBounds): WindowBoun
 
   win.setBounds(next, false)
 
-  // Windows transparent window: retry if size did not stick
+  // Windows 透明窗 resize 偶发失效，hide/show 后重试
   const applied = win.getBounds()
   if (applied.width < next.width - 20 || applied.height < next.height - 20) {
     win.hide()
@@ -83,6 +88,7 @@ function applyWindowBounds(win: BrowserWindow, bounds: WindowBounds): WindowBoun
   return result
 }
 
+/** 展开为全屏钢琴面板，保存桌宠位置供收起时恢复 */
 function enterPianoMode(win: BrowserWindow): WindowBounds {
   if (!win.isMaximized() && !win.isFullScreen()) {
     petBoundsBeforeExpand = win.getBounds()
@@ -95,6 +101,7 @@ function enterPianoMode(win: BrowserWindow): WindowBounds {
   return result
 }
 
+/** 收起回 220×220 桌宠，恢复 skipTaskbar */
 function exitPianoMode(win: BrowserWindow): WindowBounds {
   const saved = petBoundsBeforeExpand
   const next = saved
@@ -208,7 +215,10 @@ interface InteractionSession {
 let interaction: InteractionSession | null = null
 let interactionTimer: ReturnType<typeof setInterval> | null = null
 
-/** Begin tracking cursor in main process (renderer mousemove is unreliable here). */
+/**
+ * 开始主进程指针轮询拖拽。
+ * 渲染进程 mousemove 在透明窗上不可靠，故由主进程每 4ms 采样光标位置。
+ */
 export function beginWindowInteraction(win: BrowserWindow): void {
   endWindowInteraction()
 
@@ -254,7 +264,7 @@ export function beginWindowInteraction(win: BrowserWindow): void {
   }, 4)
 }
 
-/** Stop tracking; returns whether the session was a drag (vs tap). */
+/** 结束拖拽会话；返回 true 表示发生了实际拖动（非单纯点击） */
 export function endWindowInteraction(): boolean {
   if (interactionTimer) {
     clearInterval(interactionTimer)

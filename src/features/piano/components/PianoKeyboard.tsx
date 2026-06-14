@@ -1,8 +1,16 @@
+/**
+ * 钢琴键盘组件
+ *
+ * 渲染全量键盘 C2–B6，通过连续 scrollPosition 平移，支持半键露出。
+ */
 import { useMemo } from 'react'
 import { PianoKey } from './PianoKey'
-import { BLACK_KEYS, KEY_LABELS, WHITE_KEYS } from '../constants/keys'
+import type { PianoKeyDef } from '../constants/keys'
+import { buildFullPianoKeys, buildKeyLabelsForScroll } from '../constants/keys'
+import { getTotalWhiteKeys, VISIBLE_WHITE_KEYS } from '@/features/piano/constants/keys'
 
 interface PianoKeyboardProps {
+  scrollPosition: number
   activeNotes: Set<string>
   onNoteOn: (note: string) => void
   onNoteOff: (note: string) => void
@@ -10,58 +18,81 @@ interface PianoKeyboardProps {
 }
 
 export function PianoKeyboard({
+  scrollPosition,
   activeNotes,
   onNoteOn,
   onNoteOff,
   className = '',
 }: PianoKeyboardProps) {
-  const whiteKeyUnit = 100 / WHITE_KEYS.length
-  const whiteKeyWidth = `${whiteKeyUnit}%`
-  const blackKeyWidthPct = whiteKeyUnit * 0.62
+  const keys = useMemo(() => buildFullPianoKeys(), [])
+  const keyLabels = useMemo(
+    () => buildKeyLabelsForScroll(scrollPosition),
+    [scrollPosition],
+  )
+  const whiteKeys = useMemo(() => keys.filter((k) => k.type === 'white'), [keys])
+  const blackKeys = useMemo(() => keys.filter((k) => k.type === 'black'), [keys])
+
+  const totalWhite = getTotalWhiteKeys()
+  const stripWidthPct = (totalWhite / VISIBLE_WHITE_KEYS) * 100
+  const translatePct = (scrollPosition / totalWhite) * 100
+
+  const whiteKeyWidth = `${100 / totalWhite}%`
+  const blackKeyWidthPct = (100 / totalWhite) * 0.62
   const blackKeyWidth = `${blackKeyWidthPct}%`
 
   const blackKeyPositions = useMemo(
     () =>
-      BLACK_KEYS.map((key) => {
+      blackKeys.map((key: PianoKeyDef) => {
         const afterWhite = key.afterWhite ?? 0
-        // Center on the seam between this white key and the next (no translate — motion.y breaks -translate-x-1/2)
-        const leftPercent = (afterWhite + 1) * whiteKeyUnit - blackKeyWidthPct / 2
+        const leftPercent = (afterWhite + 1) * (100 / totalWhite) - blackKeyWidthPct / 2
         return { ...key, leftPercent }
       }),
-    [blackKeyWidthPct, whiteKeyUnit],
+    [blackKeys, blackKeyWidthPct, totalWhite],
   )
 
   return (
-    <div className={`relative h-full min-h-[140px] w-full select-none ${className}`}>
-      {/* White keys */}
-      <div className="flex h-full w-full overflow-hidden rounded-b-xl border border-white/10 bg-slate-900/50 shadow-[inset_0_-8px_24px_rgba(0,0,0,0.25)]">
-        {WHITE_KEYS.map((key) => (
-          <PianoKey
-            key={key.note}
-            note={key.note}
-            label={KEY_LABELS[key.note]}
-            active={activeNotes.has(key.note)}
-            onPress={onNoteOn}
-            onRelease={onNoteOff}
-            className="relative h-full flex-1 border-r border-slate-400/25 bg-gradient-to-b from-slate-50 to-slate-300 last:border-r-0"
-            style={{ width: whiteKeyWidth, minWidth: 0 }}
-          />
-        ))}
-      </div>
+    <div className={`relative h-full min-h-[140px] w-full select-none overflow-hidden rounded-b-xl border border-white/10 bg-slate-900/50 shadow-[inset_0_-8px_24px_rgba(0,0,0,0.25)] ${className}`}>
+      <div
+        className="relative h-full will-change-transform"
+        style={{
+          width: `${stripWidthPct}%`,
+          transform: `translateX(-${translatePct}%)`,
+        }}
+      >
+        <div className="relative z-0 flex h-full w-full">
+          {whiteKeys.map((key) => (
+            <PianoKey
+              key={key.note}
+              note={key.note}
+              pitchLabel={key.note}
+              variant="white"
+              label={keyLabels[key.note]}
+              active={activeNotes.has(key.note)}
+              onPress={onNoteOn}
+              onRelease={onNoteOff}
+              className="h-full shrink-0"
+              style={{ width: whiteKeyWidth }}
+            />
+          ))}
+        </div>
 
-      {/* Black keys — ~58% height, ~62% of white key width */}
-      {blackKeyPositions.map((key) => (
-        <PianoKey
-          key={key.note}
-          note={key.note}
-          label={KEY_LABELS[key.note]}
-          active={activeNotes.has(key.note)}
-          onPress={onNoteOn}
-          onRelease={onNoteOff}
-          className="absolute top-0 z-10 h-[58%] rounded-b-lg border border-violet-400/25 bg-gradient-to-b from-slate-700 to-slate-950 shadow-md"
-          style={{ left: `${key.leftPercent}%`, width: blackKeyWidth }}
-        />
-      ))}
+        <div className="pointer-events-none absolute inset-x-0 top-0 z-[15] h-[58%]">
+          {blackKeyPositions.map((key) => (
+            <PianoKey
+              key={key.note}
+              note={key.note}
+              pitchLabel={key.note}
+              variant="black"
+              label={keyLabels[key.note]}
+              active={activeNotes.has(key.note)}
+              onPress={onNoteOn}
+              onRelease={onNoteOff}
+              className="pointer-events-auto top-0 h-full"
+              style={{ left: `${key.leftPercent}%`, width: blackKeyWidth }}
+            />
+          ))}
+        </div>
+      </div>
     </div>
   )
 }

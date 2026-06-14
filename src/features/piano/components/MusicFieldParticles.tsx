@@ -1,3 +1,8 @@
+/**
+ * 音乐场域粒子效果
+ *
+ * 基于 Three.js 的环境粒子与手势意图触发的爆发粒子，随音乐状态动态变化。
+ */
 import { useMemo, useRef } from 'react'
 import { Canvas, useFrame } from '@react-three/fiber'
 import * as THREE from 'three'

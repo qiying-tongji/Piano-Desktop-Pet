@@ -1,3 +1,8 @@
+/**
+ * 手部特征提取器
+ *
+ * 从 MediaPipe 关键点计算掌心中心、速度、张合度、伸指数及运动轨迹。
+ */
 import type { NormalizedLandmark } from '@mediapipe/tasks-vision'
 import {
   FINGERTIP_INDICES,
@@ -5,7 +10,7 @@ import {
   STABLE_VELOCITY,
   TRAIL_LENGTH,
 } from '../constants'
-import { countExtendedFingers } from './countExtendedFingers'
+import { computeFingerStates, FingerCountSmoother } from './countExtendedFingers'
 import { OneEuroFilter2D } from './oneEuroFilter'
 import type { HandFeatures, NormPoint } from './types'
 
@@ -31,7 +36,7 @@ function dist(a: NormPoint, b: NormPoint): number {
   return Math.sqrt(dx * dx + dy * dy)
 }
 
-/** 0 = closed fist, 1 = open palm. */
+/** 0 = 握拳，1 = 完全张开。 */
 function computeOpenness(landmarks: NormalizedLandmark[]): number {
   const thumb = landmarks[4]
   const index = landmarks[8]
@@ -63,6 +68,7 @@ interface HandRuntime {
 
 export class GestureAnalyzer {
   private readonly runtimes = new Map<number, HandRuntime>()
+  private readonly fingerSmoother = new FingerCountSmoother()
 
   analyze(
     hands: NormalizedLandmark[][],
@@ -101,7 +107,11 @@ export class GestureAnalyzer {
 
       const magnitude = Math.sqrt(vx * vx + vy * vy)
       const openness = computeOpenness(landmarks)
-      const extendedFingerCount = countExtendedFingers(landmarks)
+      const fingerFrame = computeFingerStates(landmarks, labels[handIndex] ?? '')
+      const extendedFingerCount = this.fingerSmoother.resolveAmbiguousFourFive(
+        handIndex,
+        fingerFrame,
+      )
       const pinch = dist(
         { x: mirrorX(landmarks[4].x), y: landmarks[4].y },
         { x: mirrorX(landmarks[8].x), y: landmarks[8].y },
@@ -122,7 +132,10 @@ export class GestureAnalyzer {
     })
 
     for (const key of this.runtimes.keys()) {
-      if (!active.has(key)) this.runtimes.delete(key)
+      if (!active.has(key)) {
+        this.runtimes.delete(key)
+        this.fingerSmoother.deleteHand(key)
+      }
     }
 
     return features
@@ -130,5 +143,6 @@ export class GestureAnalyzer {
 
   reset(): void {
     this.runtimes.clear()
+    this.fingerSmoother.reset()
   }
 }

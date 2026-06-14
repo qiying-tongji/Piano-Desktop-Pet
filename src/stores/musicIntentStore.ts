@@ -1,24 +1,39 @@
+/**
+ * 音乐意图状态（Zustand）
+ *
+ * 调性和声 / 能量 / 左手和弦与右手短语高亮、最近意图事件。
+ */
 import { create } from 'zustand'
 import type { IntentEvent } from '@/features/gesture/lib/intent/types'
+import {
+  loadHarmonicSettings,
+  saveHarmonicSettings,
+  type HarmonicSettings,
+  type KeyId,
+  type ChordHarmonyMode,
+} from '@/features/music-intent/lib/diatonicHarmony'
 
+/** 遗留类型：部分和弦工具仍引用，旋律已改由 harmonicKey 驱动 */
 export type ScaleId = 'C-major' | 'A-minor' | 'C-pentatonic' | 'ambient-dorian'
 
+/** 短语节奏风格，内部默认 dream，不再暴露 UI */
 export type MusicMode = 'dream' | 'pulse' | 'drift' | 'ritual'
 
+import type { HandChordHold } from '@/features/music-intent/lib/handChordState'
+
 export interface MusicState {
-  scale: ScaleId
   chord: string
   root: string
   energy: number
   tension: number
   ambience: number
-  mode: MusicMode
   isHolding: boolean
-  loopActive: boolean
-  /** Left-hand chord keys shown pressed on piano. */
   activeChordNotes: string[]
-  /** Right-hand phrase keys briefly highlighted. */
+  /** 每只 MediaPipe 手独立的和弦按住状态 */
+  handChordHolds: Record<number, HandChordHold>
   phraseHighlightNotes: string[]
+  /** 每只手独立的短语高亮（合并后写入 phraseHighlightNotes） */
+  phraseHighlightsByHand: Record<number, string[]>
   leftFingerCount: number
   lastPhraseBehavior: string | null
   pianoMood: 'neutral' | 'cinematic' | 'intimate'
@@ -26,17 +41,16 @@ export interface MusicState {
 }
 
 export const DEFAULT_MUSIC_STATE: MusicState = {
-  scale: 'C-pentatonic',
   chord: 'C',
   root: 'C3',
   energy: 0.5,
   tension: 0.3,
   ambience: 0.7,
-  mode: 'dream',
   isHolding: false,
-  loopActive: false,
   activeChordNotes: [],
+  handChordHolds: {},
   phraseHighlightNotes: [],
+  phraseHighlightsByHand: {},
   leftFingerCount: 0,
   lastPhraseBehavior: null,
   pianoMood: 'neutral',
@@ -49,17 +63,21 @@ function clamp01(v: number): number {
 
 interface MusicIntentState {
   musicState: MusicState
-  lastMelodyNote: string | null
+  harmonicSettings: HarmonicSettings
   recentIntents: IntentEvent[]
   setMusicState: (partial: Partial<MusicState>) => void
+  setHarmonicKey: (keyId: KeyId) => void
+  setHarmonyMode: (mode: ChordHarmonyMode) => void
+  setChordInversion: (inversion: number) => void
+  setHarmonicSettings: (partial: Partial<HarmonicSettings>) => void
   pushIntent: (event: IntentEvent) => void
   clearRecentIntents: () => void
   resetMusicState: () => void
 }
 
-export const useMusicIntentStore = create<MusicIntentState>((set) => ({
+export const useMusicIntentStore = create<MusicIntentState>((set, get) => ({
   musicState: DEFAULT_MUSIC_STATE,
-  lastMelodyNote: null,
+  harmonicSettings: loadHarmonicSettings(),
   recentIntents: [],
   setMusicState: (partial) =>
     set((s) => ({
@@ -71,6 +89,26 @@ export const useMusicIntentStore = create<MusicIntentState>((set) => ({
         ambience: partial.ambience !== undefined ? clamp01(partial.ambience) : s.musicState.ambience,
       },
     })),
+  setHarmonicKey: (keyId) => {
+    const next = { ...get().harmonicSettings, keyId }
+    saveHarmonicSettings(next)
+    set({ harmonicSettings: next })
+  },
+  setHarmonyMode: (harmonyMode) => {
+    const next = { ...get().harmonicSettings, harmonyMode }
+    saveHarmonicSettings(next)
+    set({ harmonicSettings: next })
+  },
+  setChordInversion: (inversion) => {
+    const next = { ...get().harmonicSettings, inversion: Math.max(0, Math.min(3, inversion)) }
+    saveHarmonicSettings(next)
+    set({ harmonicSettings: next })
+  },
+  setHarmonicSettings: (partial) => {
+    const next = { ...get().harmonicSettings, ...partial }
+    saveHarmonicSettings(next)
+    set({ harmonicSettings: next })
+  },
   pushIntent: (event) =>
     set((s) => ({
       recentIntents: [event, ...s.recentIntents].slice(0, 5),
@@ -78,8 +116,12 @@ export const useMusicIntentStore = create<MusicIntentState>((set) => ({
   clearRecentIntents: () => set({ recentIntents: [] }),
   resetMusicState: () =>
     set({
-      musicState: { ...DEFAULT_MUSIC_STATE, activeChordNotes: [] },
+      musicState: {
+        ...DEFAULT_MUSIC_STATE,
+        activeChordNotes: [],
+        handChordHolds: {},
+        phraseHighlightsByHand: {},
+      },
       recentIntents: [],
-      lastMelodyNote: null,
     }),
 }))

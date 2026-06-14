@@ -1,3 +1,8 @@
+/**
+ * 手部骨架与能量可视化绘制
+ *
+ * 在 Canvas 上绘制 MediaPipe 手部骨架、运动轨迹、速度向量与能量核心。
+ */
 import type { NormalizedLandmark } from '@mediapipe/tasks-vision'
 import type { HandFeatures } from './analyzer/types'
 import { FINGERTIP_INDICES, HAND_CONNECTIONS, handColor } from './constants'
@@ -55,7 +60,7 @@ export function drawHandSkeleton(
   })
 }
 
-/** Music energy visualization: trail, center, velocity vector. */
+/** 音乐能量可视化：轨迹、中心点、速度向量。 */
 export function drawEnergyOverlay(
   ctx: CanvasRenderingContext2D,
   features: HandFeatures[],
@@ -67,7 +72,7 @@ export function drawEnergyOverlay(
     const cx = hand.center.x * width
     const cy = hand.center.y * height
 
-    // Motion trail
+    // 运动轨迹
     if (hand.trail.length > 1) {
       ctx.strokeStyle = `${color}44`
       ctx.lineWidth = 2
@@ -82,7 +87,7 @@ export function drawEnergyOverlay(
       ctx.stroke()
     }
 
-    // Velocity arrow (scaled for visibility)
+    // 速度箭头（放大以便可见）
     const arrowScale = 0.08
     const vx = hand.velocity.x * arrowScale * width
     const vy = hand.velocity.y * arrowScale * height
@@ -95,7 +100,7 @@ export function drawEnergyOverlay(
       ctx.stroke()
     }
 
-    // Palm energy core
+    // 掌心能量核心
     const coreRadius = 6 + hand.openness * 10
     ctx.beginPath()
     ctx.fillStyle = `${color}55`
@@ -105,7 +110,7 @@ export function drawEnergyOverlay(
     ctx.lineWidth = hand.isStable ? 2 : 1
     ctx.stroke()
 
-    // Openness ring
+    // 张合度光环
     if (hand.openness > 0.5) {
       ctx.beginPath()
       ctx.strokeStyle = `rgba(167, 139, 250, ${hand.openness * 0.4})`

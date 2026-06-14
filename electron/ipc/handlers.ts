@@ -1,3 +1,8 @@
+/**
+ * IPC 通道注册
+ *
+ * 职责：将 preload 暴露的 API 映射到 windowManager 等主进程能力。
+ */
 import { app, BrowserWindow, ipcMain } from 'electron'
 import type { AppInfo, AppWindowMode, WindowBounds } from './channels'
 import { IPC_CHANNELS } from './channels'

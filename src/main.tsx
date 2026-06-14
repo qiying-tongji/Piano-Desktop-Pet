@@ -1,3 +1,8 @@
+/**
+ * React 应用入口
+ *
+ * 挂载根组件，注入全局 Provider 与样式。
+ */
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import App from './App'

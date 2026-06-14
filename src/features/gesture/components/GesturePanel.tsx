@@ -1,3 +1,8 @@
+/**
+ * 手势意图叠加层与开关
+ *
+ * 组合手部追踪 overlay、HUD 状态栏、指挥提示及手势功能开关按钮。
+ */
 import { HandOverlay } from './HandOverlay'
 import { ConductGuideCard } from './ConductGuideCard'
 import { INTENT_LABELS } from '../lib/intent/types'
@@ -24,6 +29,7 @@ export function GestureIntentOverlay() {
   const fps = useGestureStore((s) => s.fps)
   const snapshot = useGestureStore((s) => s.analyzerSnapshot)
   const musicState = useMusicIntentStore((s) => s.musicState)
+  const harmonicSettings = useMusicIntentStore((s) => s.harmonicSettings)
   const recentIntents = useMusicIntentStore((s) => s.recentIntents)
   const quality = usePerformanceStore((s) => s.quality)
 
@@ -59,10 +65,18 @@ export function GestureIntentOverlay() {
 
         {status === 'ready' && (
           <div className="rounded-md bg-black/45 px-2 py-1 text-[8px] text-white/50">
-            {musicState.scale} · {musicState.chord} · E{musicState.energy.toFixed(1)}
-            {musicState.leftFingerCount > 0
-              ? ` · ${getLeftHandChordLabel(musicState.leftFingerCount)}`
-              : ''}
+            {harmonicSettings.keyId} · {musicState.chord} · E{musicState.energy.toFixed(1)}
+            {Object.values(musicState.handChordHolds).map((hold) => (
+              <span key={hold.handIndex}>
+                {' · '}
+                {hold.side === 'left' ? '左' : '右'}
+                {getLeftHandChordLabel(
+                  hold.fingerCount,
+                  harmonicSettings.keyId,
+                  harmonicSettings.harmonyMode,
+                )}
+              </span>
+            ))}
             {musicState.isHolding ? ' · chord' : ''}
             {musicState.pianoMood !== 'neutral' ? ` · ${musicState.pianoMood}` : ''}
             {phraseMemory.previousNote ? ` · ♪${phraseMemory.previousNote}` : ''}
@@ -74,7 +88,7 @@ export function GestureIntentOverlay() {
             {INTENT_LABELS[recentIntents[0].type]}
             {recentIntents[0].direction ? ` ${recentIntents[0].direction}` : ''}
             {recentIntents[0].fingerCount
-              ? ` · ${getLeftHandChordLabel(recentIntents[0].fingerCount)}`
+              ? ` · ${getLeftHandChordLabel(recentIntents[0].fingerCount, harmonicSettings.keyId, harmonicSettings.harmonyMode)}`
               : ''}
           </div>
         )}
@@ -127,5 +141,5 @@ export function GestureToggle() {
   )
 }
 
-/** @deprecated Use GestureIntentOverlay */
+/** @deprecated 请使用 GestureIntentOverlay */
 export const GestureKeyboardOverlay = GestureIntentOverlay

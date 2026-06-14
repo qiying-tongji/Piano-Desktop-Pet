@@ -109,6 +109,8 @@ piano-desktop-pet/
 - [架构说明](./docs/ARCHITECTURE.md)
 - [开发日志](./docs/DEVELOPMENT.md)
 - [手势意图系统](./docs/GESTURE-INTENT.md)
+- [右手意图设计说明](./docs/RIGHT-HAND-INTENT-DESIGN.md)
+- [项目解析](./docs/项目解析.md)
 
 ## License
 

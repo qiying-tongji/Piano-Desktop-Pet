@@ -1,19 +1,26 @@
-import { getChordNotes } from '../chords'
+/**
+ * AI Piano 短语生成引擎
+ *
+ * 规则型程序化音乐：音阶引力 + 句法记忆 + 随机节奏，生成 0.5–1.5s 钢琴短语。
+ */
 import { midiToNote, noteToMidi } from '../scales'
 import {
-  buildGravityPool,
-  isChordTone,
+  buildGravityPoolForHarmony,
+  isChordToneFromNotes,
   nearestInPool,
   pickPassingTone,
 } from './melodicGravity'
 import { phraseRhythm } from './phraseRhythm'
 import type {
+  PhraseBehavior,
+  MusicMode,
   PhraseMemory,
   PhraseRequest,
   PianoPhrase,
-  PhraseBehavior,
   PhraseNote,
 } from './types'
+import { DEFAULT_START_OCTAVE } from '@/stores/pianoStore'
+
 import { DEFAULT_PHRASE_MEMORY } from './types'
 
 let memory: PhraseMemory = { ...DEFAULT_PHRASE_MEMORY }
@@ -26,35 +33,54 @@ export function resetPhraseMemory(): void {
   memory = { ...DEFAULT_PHRASE_MEMORY }
 }
 
-function registerRange(behavior: PhraseBehavior, energy: number, bias: number): [number, number] {
+function registerRange(
+  behavior: PhraseBehavior,
+  energy: number,
+  bias: number,
+  mode: MusicMode,
+  octaveStart: number,
+): [number, number] {
   const e = energy
   const b = bias
+  let range: [number, number]
   switch (behavior) {
     case 'lift':
-      return [58, 76]
+      range = [58, 76]
+      break
     case 'settle':
     case 'intimate':
-      return [48, 62]
+      range = [48, 62]
+      break
     case 'climax':
-      return [52, 80]
+      range = [52, 80]
+      break
     case 'ascend':
-      return [Math.round(52 + b * 4), Math.round(68 + e * 8)]
+      range = [Math.round(52 + b * 4), Math.round(68 + e * 8)]
+      break
     case 'descend':
-      return [Math.round(50 + b * 2), Math.round(72 - (1 - e) * 6)]
+      range = [Math.round(50 + b * 2), Math.round(72 - (1 - e) * 6)]
+      break
     default:
-      return [52, 72]
+      range = [52, 72]
   }
+  if (mode === 'drift') {
+    range = [range[0] - 4, range[1] + 6]
+  } else if (mode === 'pulse') {
+    range = [range[0] + 2, range[1] + 2]
+  }
+
+  // 随可见键盘八度平移音区（默认 C3 锚点）
+  const octaveShift = (octaveStart - DEFAULT_START_OCTAVE) * 12
+  return [range[0] + octaveShift, range[1] + octaveShift]
 }
 
 function startMidi(
   pool: string[],
-  chord: string,
-  scaleId: Parameters<typeof getChordNotes>[1],
+  chordNotes: string[],
   behavior: PhraseBehavior,
   mem: PhraseMemory,
 ): number {
-  const chordNotes = getChordNotes(chord, scaleId)
-  const rootMidi = noteToMidi(chordNotes[0])
+  const rootMidi = chordNotes.length > 0 ? noteToMidi(chordNotes[0]) : 60
 
   if (mem.previousNote) {
     const prev = noteToMidi(mem.previousNote)
@@ -65,6 +91,12 @@ function startMidi(
       return Math.max(prev - 2, noteToMidi(pool[0]))
     }
     return prev
+  }
+
+  const chordMidis = chordNotes.map((n) => noteToMidi(n))
+  const inPool = pool.filter((n) => chordMidis.includes(noteToMidi(n)))
+  if (inPool.length > 0) {
+    return noteToMidi(inPool[Math.floor(inPool.length / 2)])
   }
 
   const mid = pool[Math.floor(pool.length * (0.35 + mem.registerBias * 0.25))]
@@ -93,21 +125,21 @@ function buildNotePath(
   pool: string[],
   noteCount: number,
 ): string[] {
-  const { behavior, chord, scale } = request
-  let cursor = startMidi(pool, chord, scale, behavior, request.memory)
+  const { behavior, chordNotes } = request
+  let cursor = startMidi(pool, chordNotes, behavior, request.memory)
   const path: string[] = []
   const minMidi = noteToMidi(pool[0])
   const maxMidi = noteToMidi(pool[pool.length - 1])
 
   for (let i = 0; i < noteCount; i++) {
-    const snapped = nearestInPool(cursor, pool)
+    const snapped = nearestInPool(cursor, pool, chordNotes)
     path.push(snapped)
     cursor = noteToMidi(snapped)
 
     if (i < noteCount - 1) {
       const delta = stepDelta(behavior, i, noteCount)
       const target = Math.max(minMidi, Math.min(maxMidi, cursor + delta))
-      const passing = pickPassingTone(cursor, target, pool, chord, scale)
+      const passing = pickPassingTone(cursor, target, pool, chordNotes)
       if (passing && i < noteCount - 2) {
         path.push(passing)
         cursor = noteToMidi(passing)
@@ -118,48 +150,59 @@ function buildNotePath(
   }
 
   if (behavior === 'descend' || behavior === 'settle' || behavior === 'intimate') {
-    const root = getChordNotes(chord, scale)[0]
-    const rootInRange = nearestInPool(noteToMidi(root) + 12, pool)
-    if (!path.includes(rootInRange)) path[path.length - 1] = rootInRange
+    const root = chordNotes[0]
+    if (root) {
+      const rootInRange = nearestInPool(noteToMidi(root) + 12, pool, chordNotes)
+      if (!path.includes(rootInRange)) path[path.length - 1] = rootInRange
+    }
   }
 
   if (behavior === 'climax' && path.length >= 2) {
     const last = path[path.length - 1]
     const octaveUp = midiToNote(noteToMidi(last) + 12)
-    if (noteToMidi(octaveUp) <= maxMidi + 12) path.push(nearestInPool(noteToMidi(octaveUp), pool))
+    if (noteToMidi(octaveUp) <= maxMidi + 12) {
+      path.push(nearestInPool(noteToMidi(octaveUp), pool, chordNotes))
+    }
   }
 
   return path.slice(0, noteCount + (behavior === 'climax' ? 1 : 0))
 }
 
-function noteCountFor(behavior: PhraseBehavior, strength: number): number {
+function noteCountFor(behavior: PhraseBehavior, strength: number, mode: MusicMode): number {
   const fast = strength > 0.6
   const slow = strength < 0.35
+  let count: number
   switch (behavior) {
     case 'intimate':
     case 'settle':
-      return slow ? 2 : 3
+      count = slow ? 2 : 3
+      break
     case 'lift':
-      return 3
+      count = 3
+      break
     case 'climax':
-      return fast ? 5 : 4
+      count = fast ? 5 : 4
+      break
     default:
-      return fast ? 5 : slow ? 3 : 4
+      count = fast ? 5 : slow ? 3 : 4
   }
+  if (mode === 'pulse') count = Math.min(6, count + 1)
+  if (mode === 'ritual') count = Math.max(2, count - (fast ? 0 : 1))
+  return count
 }
 
 export function generatePhrase(request: PhraseRequest): PianoPhrase {
-  const { behavior, strength, energy, chord, scale } = request
-  const [low, high] = registerRange(behavior, energy, request.memory.registerBias)
-  const pool = buildGravityPool(chord, scale, low, high)
-  const count = noteCountFor(behavior, strength)
+  const { behavior, strength, energy, mode = 'dream', octaveStart, harmonicKey, chordNotes } = request
+  const [low, high] = registerRange(behavior, energy, request.memory.registerBias, mode, octaveStart)
+  const pool = buildGravityPoolForHarmony(chordNotes, harmonicKey, low, high)
+  const count = noteCountFor(behavior, strength, mode)
   const noteNames = buildNotePath(request, pool, count)
-  const rhythm = phraseRhythm(noteNames.length, strength, behavior)
+  const rhythm = phraseRhythm(noteNames.length, strength, behavior, mode)
 
   const notes: PhraseNote[] = []
   let t = 0
   for (let i = 0; i < noteNames.length; i++) {
-    const isChord = isChordTone(noteNames[i], chord, scale)
+    const isChord = isChordToneFromNotes(noteNames[i], chordNotes)
     const accent = i === noteNames.length - 1 || (behavior === 'lift' && i === noteNames.length - 1)
     let vel = rhythm.baseVelocity
     if (accent) vel += 0.08

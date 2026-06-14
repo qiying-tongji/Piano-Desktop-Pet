@@ -1,6 +1,11 @@
+/**
+ * 音阶与音符工具
+ *
+ * 定义各调式音级、MIDI 转换及将任意音符量化到当前音阶。
+ */
 import type { ScaleId } from '@/stores/musicIntentStore'
 
-/** Pitch classes (0=C … 11=B) per scale. */
+/** 各音阶的音高类（0=C … 11=B）。 */
 export const SCALE_PITCH_CLASSES: Record<ScaleId, readonly number[]> = {
   'C-major': [0, 2, 4, 5, 7, 9, 11],
   'A-minor': [9, 11, 0, 2, 4, 5, 7],
@@ -15,7 +20,7 @@ export const SCALE_ROOT_MIDI: Record<ScaleId, number> = {
   'ambient-dorian': 50,
 }
 
-/** Build ascending scale notes across octaves (e.g. C3–C5). */
+/** 在指定八度范围内构建升序音阶音符（如 C3–C5）。 */
 export function buildScaleNotes(scaleId: ScaleId, lowMidi = 48, highMidi = 72): string[] {
   const classes = SCALE_PITCH_CLASSES[scaleId]
   const notes: string[] = []

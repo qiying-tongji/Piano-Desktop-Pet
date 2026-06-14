@@ -1,3 +1,8 @@
+/**
+ * MediaPipe 手部检测 Hook
+ *
+ * 在视频流上循环运行 HandLandmarker，输出帧数据并更新 FPS/手数指标。
+ */
 import { useEffect, useRef } from 'react'
 import { disposeHandLandmarker, getHandLandmarker, toHandFrame } from '../lib/handLandmarker'
 import type { HandFrame } from '../types'

@@ -1,95 +1,222 @@
+/**
+ * 钢琴键位与键盘映射
+ *
+ * 全量键盘布局（C2–B6）+ 连续滑动视口下的标签/映射。
+ */
+import { midiToNote, noteToMidi } from '@/features/music-intent/lib/scales'
+
+/** 全键盘最低八度 */
+export const KEYBOARD_MIN_OCTAVE = 2
+/** 全键盘最高八度（含 B6） */
+export const KEYBOARD_MAX_OCTAVE = 6
+/** 可见白键数（约两八度） */
+export const VISIBLE_WHITE_KEYS = 14
+
 export interface PianoKeyDef {
   note: string
   label: string
   type: 'white' | 'black'
-  /** Index among white keys (for layout). */
   whiteIndex?: number
-  /** Black key sits after this white key index. */
   afterWhite?: number
 }
 
-/** Two octaves: C3 – B4 */
-export const PIANO_KEYS: PianoKeyDef[] = [
-  { note: 'C3', label: 'C', type: 'white', whiteIndex: 0 },
-  { note: 'C#3', label: 'C#', type: 'black', afterWhite: 0 },
-  { note: 'D3', label: 'D', type: 'white', whiteIndex: 1 },
-  { note: 'D#3', label: 'D#', type: 'black', afterWhite: 1 },
-  { note: 'E3', label: 'E', type: 'white', whiteIndex: 2 },
-  { note: 'F3', label: 'F', type: 'white', whiteIndex: 3 },
-  { note: 'F#3', label: 'F#', type: 'black', afterWhite: 3 },
-  { note: 'G3', label: 'G', type: 'white', whiteIndex: 4 },
-  { note: 'G#3', label: 'G#', type: 'black', afterWhite: 4 },
-  { note: 'A3', label: 'A', type: 'white', whiteIndex: 5 },
-  { note: 'A#3', label: 'A#', type: 'black', afterWhite: 5 },
-  { note: 'B3', label: 'B', type: 'white', whiteIndex: 6 },
-  { note: 'C4', label: 'C', type: 'white', whiteIndex: 7 },
-  { note: 'C#4', label: 'C#', type: 'black', afterWhite: 7 },
-  { note: 'D4', label: 'D', type: 'white', whiteIndex: 8 },
-  { note: 'D#4', label: 'D#', type: 'black', afterWhite: 8 },
-  { note: 'E4', label: 'E', type: 'white', whiteIndex: 9 },
-  { note: 'F4', label: 'F', type: 'white', whiteIndex: 10 },
-  { note: 'F#4', label: 'F#', type: 'black', afterWhite: 10 },
-  { note: 'G4', label: 'G', type: 'white', whiteIndex: 11 },
-  { note: 'G#4', label: 'G#', type: 'black', afterWhite: 11 },
-  { note: 'A4', label: 'A', type: 'white', whiteIndex: 12 },
-  { note: 'A#4', label: 'A#', type: 'black', afterWhite: 12 },
-  { note: 'B4', label: 'B', type: 'white', whiteIndex: 13 },
+const OCTAVE_PATTERN: { name: string; type: 'white' | 'black'; afterWhite?: number }[] = [
+  { name: 'C', type: 'white' },
+  { name: 'C#', type: 'black', afterWhite: 0 },
+  { name: 'D', type: 'white' },
+  { name: 'D#', type: 'black', afterWhite: 1 },
+  { name: 'E', type: 'white' },
+  { name: 'F', type: 'white' },
+  { name: 'F#', type: 'black', afterWhite: 3 },
+  { name: 'G', type: 'white' },
+  { name: 'G#', type: 'black', afterWhite: 4 },
+  { name: 'A', type: 'white' },
+  { name: 'A#', type: 'black', afterWhite: 5 },
+  { name: 'B', type: 'white' },
 ]
 
-export const WHITE_KEYS = PIANO_KEYS.filter((k) => k.type === 'white')
-export const BLACK_KEYS = PIANO_KEYS.filter((k) => k.type === 'black')
+const LOW_ROW_KEYS = ['z', 's', 'x', 'd', 'c', 'v', 'g', 'b', 'h', 'n', 'j', 'm'] as const
+const HIGH_ROW_KEYS = ['q', '2', 'w', '3', 'e', 'r', '5', 't', '6', 'y', '7', 'u'] as const
+const LOW_ROW_LABELS = ['Z', 'S', 'X', 'D', 'C', 'V', 'G', 'B', 'H', 'N', 'J', 'M'] as const
+const HIGH_ROW_LABELS = ['Q', '2', 'W', '3', 'E', 'R', '5', 'T', '6', 'Y', '7', 'U'] as const
 
-/** Computer keyboard → note (two octaves). */
-export const KEYBOARD_MAP: Record<string, string> = {
-  z: 'C3',
-  s: 'C#3',
-  x: 'D3',
-  d: 'D#3',
-  c: 'E3',
-  v: 'F3',
-  g: 'F#3',
-  b: 'G3',
-  h: 'G#3',
-  n: 'A3',
-  j: 'A#3',
-  m: 'B3',
-  q: 'C4',
-  '2': 'C#4',
-  w: 'D4',
-  '3': 'D#4',
-  e: 'E4',
-  r: 'F4',
-  '5': 'F#4',
-  t: 'G4',
-  '6': 'G#4',
-  y: 'A4',
-  '7': 'A#4',
-  u: 'B4',
+const FULL_KEYBOARD_OCTAVES = KEYBOARD_MAX_OCTAVE - KEYBOARD_MIN_OCTAVE + 1
+
+let cachedWhiteKeyNotes: string[] | null = null
+let cachedFullKeys: PianoKeyDef[] | null = null
+
+export function getWhiteKeyNotes(): string[] {
+  if (!cachedWhiteKeyNotes) {
+    const notes: string[] = []
+    for (let o = KEYBOARD_MIN_OCTAVE; o <= KEYBOARD_MAX_OCTAVE; o++) {
+      for (const w of ['C', 'D', 'E', 'F', 'G', 'A', 'B'] as const) {
+        notes.push(`${w}${o}`)
+      }
+    }
+    cachedWhiteKeyNotes = notes
+  }
+  return cachedWhiteKeyNotes
 }
 
-export const KEY_LABELS: Record<string, string> = {
-  C3: 'Z',
-  'C#3': 'S',
-  D3: 'X',
-  'D#3': 'D',
-  E3: 'C',
-  F3: 'V',
-  'F#3': 'G',
-  G3: 'B',
-  'G#3': 'H',
-  A3: 'N',
-  'A#3': 'J',
-  B3: 'M',
-  C4: 'Q',
-  'C#4': '2',
-  D4: 'W',
-  'D#4': '3',
-  E4: 'E',
-  F4: 'R',
-  'F#4': '5',
-  G4: 'T',
-  'G#4': '6',
-  A4: 'Y',
-  'A#4': '7',
-  B4: 'U',
+export function getTotalWhiteKeys(): number {
+  return getWhiteKeyNotes().length
 }
+
+export function buildPianoKeys(startOctave: number, octaveCount = 2): PianoKeyDef[] {
+  const keys: PianoKeyDef[] = []
+  let whiteIndex = 0
+
+  for (let o = 0; o < octaveCount; o++) {
+    const octave = startOctave + o
+    for (const pat of OCTAVE_PATTERN) {
+      const note = `${pat.name}${octave}`
+      const label = pat.name.replace('#', '♯')
+
+      if (pat.type === 'white') {
+        keys.push({ note, label, type: 'white', whiteIndex })
+        whiteIndex += 1
+      } else {
+        keys.push({
+          note,
+          label,
+          type: 'black',
+          afterWhite: pat.afterWhite !== undefined ? pat.afterWhite + o * 7 : undefined,
+        })
+      }
+    }
+  }
+  return keys
+}
+
+/** 全量键盘 C2–B6，白键带全局 whiteIndex */
+export function buildFullPianoKeys(): PianoKeyDef[] {
+  if (!cachedFullKeys) {
+    cachedFullKeys = buildPianoKeys(KEYBOARD_MIN_OCTAVE, FULL_KEYBOARD_OCTAVES)
+  }
+  return cachedFullKeys
+}
+
+export function getMappingStartOctave(scroll: number): number {
+  const whiteIndex = Math.floor(Math.max(0, scroll))
+  const octaveSpan = 7
+  const rel = Math.min(
+    FULL_KEYBOARD_OCTAVES - 2,
+    Math.max(0, Math.floor(whiteIndex / octaveSpan)),
+  )
+  return KEYBOARD_MIN_OCTAVE + rel
+}
+
+/** 白键 index 是否与视口 [scroll, scroll + VISIBLE_WHITE_KEYS) 相交 */
+function isWhiteKeyInViewport(whiteIndex: number, scroll: number): boolean {
+  const viewEnd = scroll + VISIBLE_WHITE_KEYS
+  return whiteIndex < viewEnd && whiteIndex + 1 > scroll
+}
+
+/** 黑键是否处于当前视口可见范围（相邻白键任一可见即纳入） */
+function isBlackKeyInViewport(afterWhite: number, scroll: number): boolean {
+  return (
+    isWhiteKeyInViewport(afterWhite, scroll) ||
+    isWhiteKeyInViewport(afterWhite + 1, scroll)
+  )
+}
+
+/**
+ * 当前视口内可见的琴键（chromatic 顺序，随 scroll 滑动）。
+ * 最多 24 个，对应 Z–M / Q–U 两排共 24 个物理键。
+ */
+export function getVisiblePianoKeysForScroll(scroll: number): PianoKeyDef[] {
+  const allKeys = buildFullPianoKeys()
+  const maxScroll = Math.max(0, getTotalWhiteKeys() - VISIBLE_WHITE_KEYS)
+  const clamped = Math.max(0, Math.min(maxScroll, scroll))
+
+  const visible = allKeys.filter((k) => {
+    if (k.type === 'white') {
+      return isWhiteKeyInViewport(k.whiteIndex ?? 0, clamped)
+    }
+    return isBlackKeyInViewport(k.afterWhite ?? 0, clamped)
+  })
+
+  return visible.slice(0, LOW_ROW_KEYS.length + HIGH_ROW_KEYS.length)
+}
+
+export function buildKeyboardMapForScroll(scroll: number): Record<string, string> {
+  const visible = getVisiblePianoKeysForScroll(scroll)
+  const map: Record<string, string> = {}
+
+  visible.slice(0, LOW_ROW_KEYS.length).forEach((k, i) => {
+    map[LOW_ROW_KEYS[i]] = k.note
+  })
+  visible.slice(LOW_ROW_KEYS.length, LOW_ROW_KEYS.length + HIGH_ROW_KEYS.length).forEach((k, i) => {
+    map[HIGH_ROW_KEYS[i]] = k.note
+  })
+
+  return map
+}
+
+export function buildKeyLabelsForScroll(scroll: number): Record<string, string> {
+  const visible = getVisiblePianoKeysForScroll(scroll)
+  const labels: Record<string, string> = {}
+
+  visible.slice(0, LOW_ROW_KEYS.length).forEach((k, i) => {
+    labels[k.note] = LOW_ROW_LABELS[i]
+  })
+  visible.slice(LOW_ROW_KEYS.length, LOW_ROW_KEYS.length + HIGH_ROW_KEYS.length).forEach((k, i) => {
+    labels[k.note] = HIGH_ROW_LABELS[i]
+  })
+
+  return labels
+}
+
+export function buildKeyboardMap(startOctave: number, octaveCount = 2): Record<string, string> {
+  const keys = buildPianoKeys(startOctave, octaveCount)
+  const map: Record<string, string> = {}
+  const lowOctaveNotes = keys.filter((k) => k.note.endsWith(String(startOctave)))
+  const highOctaveNotes = keys.filter((k) => k.note.endsWith(String(startOctave + 1)))
+
+  lowOctaveNotes.forEach((k, i) => {
+    if (i < LOW_ROW_KEYS.length) map[LOW_ROW_KEYS[i]] = k.note
+  })
+  highOctaveNotes.forEach((k, i) => {
+    if (i < HIGH_ROW_KEYS.length) map[HIGH_ROW_KEYS[i]] = k.note
+  })
+  return map
+}
+
+export function buildKeyLabels(startOctave: number, octaveCount = 2): Record<string, string> {
+  const keys = buildPianoKeys(startOctave, octaveCount)
+  const labels: Record<string, string> = {}
+  const lowOctaveNotes = keys.filter((k) => k.note.endsWith(String(startOctave)))
+  const highOctaveNotes = keys.filter((k) => k.note.endsWith(String(startOctave + 1)))
+
+  lowOctaveNotes.forEach((k, i) => {
+    if (i < LOW_ROW_LABELS.length) labels[k.note] = LOW_ROW_LABELS[i]
+  })
+  highOctaveNotes.forEach((k, i) => {
+    if (i < HIGH_ROW_LABELS.length) labels[k.note] = HIGH_ROW_LABELS[i]
+  })
+  return labels
+}
+
+/** 连续视口左/右缘音高（支持半键偏移） */
+export function getViewportEdgeNotes(scroll: number): { left: string; right: string } {
+  const white = getWhiteKeyNotes()
+  const whiteMidis = white.map(noteToMidi)
+  const maxScroll = Math.max(0, white.length - VISIBLE_WHITE_KEYS)
+
+  const clamped = Math.max(0, Math.min(maxScroll, scroll))
+  const leftIdx = Math.floor(clamped)
+  const rightPos = clamped + VISIBLE_WHITE_KEYS - 1
+  const rightIdx = Math.floor(rightPos)
+  const rightFrac = rightPos - rightIdx
+
+  const left = midiToNote(whiteMidis[Math.min(leftIdx, whiteMidis.length - 1)])
+  const rightBase = whiteMidis[Math.min(rightIdx, whiteMidis.length - 1)]
+  const rightNext =
+    rightIdx + 1 < whiteMidis.length ? whiteMidis[rightIdx + 1] : rightBase + 2
+  const rightMidi = Math.round(rightBase + (rightNext - rightBase) * rightFrac)
+  return { left, right: midiToNote(rightMidi) }
+}
+
+export const PIANO_KEYS = buildPianoKeys(3, 2)
+export const KEYBOARD_MAP = buildKeyboardMap(3, 2)
+export const KEY_LABELS = buildKeyLabels(3, 2)

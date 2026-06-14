@@ -1,3 +1,8 @@
+/**
+ * 宠物光晕效果
+ *
+ * 悬停或展开时显示径向渐变与边框发光； idle 状态保持简洁无辉光。
+ */
 import { motion } from 'framer-motion'
 
 interface PetGlowProps {
@@ -5,7 +10,7 @@ interface PetGlowProps {
   expanding?: boolean
 }
 
-/** Glow only shown on hover / expand — idle pet stays clean. */
+/** 仅在悬停/展开时显示光晕 — idle 宠物保持干净外观。 */
 export function PetGlow({ active = false, expanding = false }: PetGlowProps) {
   return (
     <>
